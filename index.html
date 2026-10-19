@@ -34,11 +34,13 @@
     .week.past { cursor: default; }
     .week.past:hover { border-color: #000; }
     .week.red { background: #e53935; }
+    .week.now { background: #43a047; cursor: default; }
+    .week.now:hover { border-color: #000; }
   </style>
 </head>
 <body>
   <h1>50 Years in Weeks</h1>
-  <p>Born 6 March 1999. Weeks already lived are red and fill in automatically. Tap any future square to mark it (tap again to clear).</p>
+  <p>Born 6 March 1999. Weeks already lived are red, the current week is green, and both move forward automatically. Tap any future square to mark it (tap again to clear).</p>
   <button id="reset">Clear my marks</button>
   <div class="grid" id="grid"></div>
 
@@ -84,7 +86,8 @@
 
     function paint() {
       document.querySelectorAll(".week").forEach((c, i) => {
-        c.classList.toggle("red", i < PAST || red.has(i));
+        c.classList.toggle("red", i < PAST || (i > PAST && red.has(i)));
+        c.classList.toggle("now", i === PAST);
       });
     }
 
@@ -98,7 +101,7 @@
         const cell = document.createElement("div");
         cell.className = "week" + (i < PAST ? " past" : "");
         cell.title = `Year ${y + 1}, week ${w + 1}`;
-        if (i >= PAST) {
+        if (i > PAST) {
           cell.addEventListener("click", () => {
             red.has(i) ? red.delete(i) : red.add(i);
             paint();

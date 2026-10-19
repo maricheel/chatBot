@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Late 2025 Days</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #fafafa;
+      color: #222;
+      margin: 0;
+      padding: 16px;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    p  { margin: 0 0 16px; color: #666; }
+    h2 { font-size: 1rem; margin: 16px 0 6px; }
+    button {
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .month { display: flex; max-width: 744px; }
+    .day {
+      flex: 1;
+      min-width: 0;
+      aspect-ratio: 1;
+      border: 1px solid #000;
+      background: #fff;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    /* Overlap neighbouring borders so every line stays 1px thin. */
+    .day + .day { margin-left: -1px; }
+    .day.past, .day.now { cursor: default; }
+    .day.past, .day.red { background: #e53935; }
+    .day.now { background: #43a047; }
+  </style>
+</head>
+<body>
+  <h1>October – December 2025</h1>
+  <p>Past days are red and today is green, both updated automatically. Tap a future day to mark it (tap again to clear).</p>
+  <button id="reset">Clear my marks</button>
+  <div id="months"></div>
+
+  <script>
+    const YEAR = 2025;
+    const MONTHS = [9, 10, 11]; // October, November, December (0-based)
+    const KEY = "days-2025-red-v1";
+
+    const pad = n => String(n).padStart(2, "0");
+    const keyOf = (m, d) => `${YEAR}-${pad(m + 1)}-${pad(d)}`;
+    const now = new Date();
+    const TODAY = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    // Days tapped by hand (future days only), stored as "YYYY-MM-DD".
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+    const red = new Set(saved.filter(k => k > TODAY));
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
+    }
+
+    const root = document.getElementById("months");
+    const cells = [];
+    for (const m of MONTHS) {
+      const first = new Date(YEAR, m, 1);
+      const h = document.createElement("h2");
+      h.textContent = first.toLocaleString("en-GB", { month: "long" });
+      root.appendChild(h);
+
+      const row = document.createElement("div");
+      row.className = "month";
+      const days = new Date(YEAR, m + 1, 0).getDate();
+      for (let d = 1; d <= days; d++) {
+        const k = keyOf(m, d);
+        const cell = document.createElement("div");
+        cell.className = "day" + (k < TODAY ? " past" : k === TODAY ? " now" : "");
+        cell.title = new Date(YEAR, m, d).toLocaleDateString("en-GB", {
+          day: "numeric", month: "long", year: "numeric"
+        });
+        if (k > TODAY) {
+          cell.addEventListener("click", () => {
+            red.has(k) ? red.delete(k) : red.add(k);
+            cell.classList.toggle("red", red.has(k));
+            save();
+          });
+          cell.classList.toggle("red", red.has(k));
+          cells.push(cell);
+        }
+        row.appendChild(cell);
+      }
+      root.appendChild(row);
+    }
+
+    document.getElementById("reset").addEventListener("click", () => {
+      red.clear();
+      save();
+      cells.forEach(c => c.classList.remove("red"));
+    });
+  </script>
+</body>
+</html>

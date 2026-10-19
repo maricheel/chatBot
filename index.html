@@ -31,27 +31,41 @@
       box-sizing: border-box;
     }
     .week:hover { border-color: #e53935; }
+    .week.past { cursor: default; }
+    .week.past:hover { border-color: #000; }
     .week.red { background: #e53935; }
   </style>
 </head>
 <body>
   <h1>50 Years in Weeks</h1>
-  <p>50 years × 52 weeks = 2600 squares. Tap a square to color it red (tap again to clear).</p>
-  <button id="reset">Clear all</button>
+  <p>Born 6 March 1999. Weeks already lived are red and fill in automatically. Tap any future square to mark it (tap again to clear).</p>
+  <button id="reset">Clear my marks</button>
   <div class="grid" id="grid"></div>
 
   <script>
     const YEARS = 50;
     const WEEKS = 52;
-    const DEFAULT_RED_YEARS = 28;
-    const KEY = "weeks-red-v2";
+    const BIRTH = new Date(1999, 2, 6); // 6 March 1999
+    const KEY = "weeks-red-v3";
 
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-    if (!Array.isArray(saved)) {
-      saved = Array.from({ length: DEFAULT_RED_YEARS * WEEKS }, (_, i) => i);
+    // Number of fully lived weeks, counted per life year (52 per row).
+    function weeksLived() {
+      const today = new Date();
+      let years = today.getFullYear() - BIRTH.getFullYear();
+      let last = new Date(BIRTH.getFullYear() + years, BIRTH.getMonth(), BIRTH.getDate());
+      if (last > today) {
+        years--;
+        last = new Date(BIRTH.getFullYear() + years, BIRTH.getMonth(), BIRTH.getDate());
+      }
+      const days = Math.floor((today - last) / 86400000);
+      return years * WEEKS + Math.min(WEEKS, Math.floor(days / 7));
     }
-    const red = new Set(saved);
+    const PAST = weeksLived();
+
+    // Squares tapped by hand (future weeks only).
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+    const red = new Set(saved.filter(i => i >= PAST));
 
     // Cloud copy (when opened on claude.ai): saved to your account, so it
     // comes back on any device. localStorage is the fallback elsewhere.
@@ -70,7 +84,7 @@
 
     function paint() {
       document.querySelectorAll(".week").forEach((c, i) => {
-        c.classList.toggle("red", red.has(i));
+        c.classList.toggle("red", i < PAST || red.has(i));
       });
     }
 
@@ -82,22 +96,25 @@
       for (let w = 0; w < WEEKS; w++) {
         const i = y * WEEKS + w;
         const cell = document.createElement("div");
-        cell.className = "week" + (red.has(i) ? " red" : "");
+        cell.className = "week" + (i < PAST ? " past" : "");
         cell.title = `Year ${y + 1}, week ${w + 1}`;
-        cell.addEventListener("click", () => {
-          cell.classList.toggle("red");
-          cell.classList.contains("red") ? red.add(i) : red.delete(i);
-          save();
-        });
+        if (i >= PAST) {
+          cell.addEventListener("click", () => {
+            red.has(i) ? red.delete(i) : red.add(i);
+            paint();
+            save();
+          });
+        }
         row.appendChild(cell);
       }
       grid.appendChild(row);
     }
+    paint();
 
     document.getElementById("reset").addEventListener("click", () => {
       red.clear();
       save();
-      document.querySelectorAll(".week.red").forEach(c => c.classList.remove("red"));
+      paint();
     });
 
     (async () => {
@@ -106,12 +123,12 @@
         const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
         const uid = user && await user.id();
         if (!db || !uid) return;
-        const doc = db.doc("data/users/" + uid + "/weeks");
+        const doc = db.doc("data/users/" + uid + "/weeks-v3");
         const snap = await doc.get();
         const data = snap.exists ? snap.data() : null;
         if (data && Array.isArray(data.red)) {
           red.clear();
-          data.red.forEach(i => red.add(i));
+          data.red.filter(i => i >= PAST).forEach(i => red.add(i));
           paint();
           try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
         }

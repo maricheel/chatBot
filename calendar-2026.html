@@ -6,12 +6,13 @@
 <title>Late 2026 Days</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-  /* Layout: each month split into two blocks (days 1–16, 17–end) of seven touching rows, one column per day. */
+  /* Layout: one line of squares per month and row; all months scroll sideways together with the labels pinned. */
   :root {
     --bg: #f7f7f5; --fg: #1f1f1f; --muted: #66665f;
     --btn-bg: #ffffff; --btn-border: #8a8a83;
     /* Square colours are fixed by request, same in both themes. */
     --line: #000; --empty: #fff; --red: #e53935; --green: #43a047; --yellow: #fdd835;
+    --cell: 22px;
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg: #181817; --fg: #ececea; --muted: #a3a39c; --btn-bg: #2a2a28; --btn-border: #6b6b65; color-scheme: dark } }
@@ -26,7 +27,7 @@
   }
   h1 { font-size: 1.4rem; margin: 0 0 4px; text-wrap: balance; }
   p  { margin: 0 0 12px; color: var(--muted); max-width: 65ch; }
-  h2 { font-size: 1rem; margin: 18px 0 6px; }
+  h2 { font-size: 1rem; margin: 18px 0 6px; position: sticky; left: 0; width: max-content; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 14px; font-size: 0.85rem; color: var(--muted); }
   .legend b { color: var(--fg); }
   .swatch { display: inline-block; width: 0.8em; height: 0.8em; border: 1px solid var(--line); vertical-align: -1px; margin-right: 4px; }
@@ -36,15 +37,14 @@
     border: 1px solid var(--btn-border); border-radius: 4px;
   }
   .reset:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-  .month { max-width: 560px; }
-  .half + .half { margin-top: 10px; }
-  .range { font-size: 0.7rem; color: var(--muted); margin: 0 0 3px 30px; font-variant-numeric: tabular-nums; }
+  @media (min-width: 720px) { :root { --cell: 26px; } }
+  .scroller { position: relative; overflow-x: auto; padding-bottom: 4px; }
+  .month { width: max-content; }
   .row { display: flex; align-items: center; }
   .row + .row { margin-top: -1px; }
-  .label { flex: 0 0 30px; font-size: 0.6rem; line-height: 1; font-weight: 600; display: flex; align-items: center; }
+  .label { position: sticky; left: 0; z-index: 2; background: var(--bg); align-self: stretch; flex: 0 0 34px; font-size: 0.6rem; line-height: 1; font-weight: 600; display: flex; align-items: center; }
   .sq {
-    /* 16 columns per block; the +15px makes up for the overlapping borders. */
-    flex: 0 0 auto; width: calc((100% - 30px + 15px) / 16); max-width: 100%; aspect-ratio: 1;
+    flex: 0 0 auto; width: var(--cell); max-width: 100%; aspect-ratio: 1;
     padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 0;
     font-size: 0; line-height: 0; height: auto;
     background: var(--empty); cursor: pointer; box-sizing: border-box;
@@ -55,7 +55,7 @@
   .sq.s2 { background: var(--green); }
   .sq.s3 { background: var(--yellow); }
   .sq:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; position: relative; z-index: 1; }
-  .ticks .tick { flex: 0 0 auto; width: calc((100% - 30px + 15px) / 16); height: 6px; }
+  .ticks .tick { flex: 0 0 auto; width: var(--cell); height: 6px; }
   .ticks .tick + .tick { margin-left: -1px; }
   .ticks .tick.today { border-top: 4px solid var(--fg); }
 </style>
@@ -63,14 +63,14 @@
 <body>
 
 <h1>October – December 2026</h1>
-<p>Each day has seven squares, one per thing you track. Tap once for red, twice for green, three times for yellow, a fourth time to clear. The bar under a column marks today.</p>
+<p>Each day has seven squares, one per thing you track. Tap once for red, twice for green, three times for yellow, a fourth time to clear. The bar under a column marks today. Swipe sideways to see the whole month.</p>
 <div class="legend">
   <span><i class="swatch" style="background:var(--red)"></i>1 tap</span>
   <span><i class="swatch" style="background:var(--green)"></i>2 taps</span>
   <span><i class="swatch" style="background:var(--yellow)"></i>3 taps</span>
 </div>
 <button class="reset" id="reset">Clear my marks</button>
-<div id="months"></div>
+<div class="scroller" id="months"></div>
 
 <script>
   const YEAR = 2026;
@@ -110,60 +110,54 @@
     root.appendChild(h);
 
     const days = new Date(YEAR, m + 1, 0).getDate();
-    for (const [from, to] of [[1, 16], [17, days]]) {
-      const half = document.createElement("div");
-      half.className = "half";
-      const range = document.createElement("div");
-      range.className = "range";
-      range.textContent = `${from}–${to}`;
-      half.appendChild(range);
+    ROWS.forEach(([letter, name], r) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = letter;
+      label.title = name;
+      row.appendChild(label);
 
-      ROWS.forEach(([letter, name], r) => {
-        const row = document.createElement("div");
-        row.className = "row";
-        const label = document.createElement("span");
-        label.className = "label";
-        label.textContent = letter;
-        label.title = name;
-        row.appendChild(label);
-
-        for (let d = from; d <= to; d++) {
-          const k = `${YEAR}-${pad(m + 1)}-${pad(d)}`;
-          const date = new Date(YEAR, m, d).toLocaleDateString("en-GB", {
-            day: "numeric", month: "long", year: "numeric"
-          });
-          const cell = document.createElement("button");
-          cell.type = "button";
-          cell.className = "sq";
-          cell.title = `${date} · ${name}`;
-          cell.setAttribute("aria-label", `${date}, ${name}`);
-          paint(cell, (marks[k] || [])[r] || 0);
-          cell.addEventListener("click", () => {
-            const day = ROWS.map((_, i) => (marks[k] || [])[i] || 0);
-            day[r] = (day[r] + 1) % 4;
-            if (day.some(v => v)) marks[k] = day; else delete marks[k];
-            paint(cell, day[r]);
-            save();
-          });
-          cells.push(cell);
-          row.appendChild(cell);
-        }
-        half.appendChild(row);
-      });
-
-      const ticks = document.createElement("div");
-      ticks.className = "row ticks";
-      ticks.appendChild(Object.assign(document.createElement("span"), { className: "label" }));
-      for (let d = from; d <= to; d++) {
-        const t = document.createElement("span");
-        t.className = "tick" + (`${YEAR}-${pad(m + 1)}-${pad(d)}` === TODAY ? " today" : "");
-        ticks.appendChild(t);
+      for (let d = 1; d <= days; d++) {
+        const k = `${YEAR}-${pad(m + 1)}-${pad(d)}`;
+        const date = new Date(YEAR, m, d).toLocaleDateString("en-GB", {
+          day: "numeric", month: "long", year: "numeric"
+        });
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "sq";
+        cell.title = `${date} · ${name}`;
+        cell.setAttribute("aria-label", `${date}, ${name}`);
+        paint(cell, (marks[k] || [])[r] || 0);
+        cell.addEventListener("click", () => {
+          const day = ROWS.map((_, i) => (marks[k] || [])[i] || 0);
+          day[r] = (day[r] + 1) % 4;
+          if (day.some(v => v)) marks[k] = day; else delete marks[k];
+          paint(cell, day[r]);
+          save();
+        });
+        cells.push(cell);
+        row.appendChild(cell);
       }
-      half.appendChild(ticks);
-      month.appendChild(half);
+      month.appendChild(row);
+    });
+
+    const ticks = document.createElement("div");
+    ticks.className = "row ticks";
+    ticks.appendChild(Object.assign(document.createElement("span"), { className: "label" }));
+    for (let d = 1; d <= days; d++) {
+      const t = document.createElement("span");
+      t.className = "tick" + (`${YEAR}-${pad(m + 1)}-${pad(d)}` === TODAY ? " today" : "");
+      ticks.appendChild(t);
     }
+    month.appendChild(ticks);
     root.appendChild(month);
   }
+
+  // Open with today in view when the months are wider than the screen.
+  const todayTick = root.querySelector(".tick.today");
+  if (todayTick) root.scrollLeft = todayTick.offsetLeft - root.clientWidth / 2;
 
   // Clearing wipes every mark, so ask for a second tap within 3 seconds.
   const reset = document.getElementById("reset");

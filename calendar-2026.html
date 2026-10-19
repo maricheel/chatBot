@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Late 2025 Days</title>
+  <title>Late 2026 Days</title>
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -37,15 +37,15 @@
   </style>
 </head>
 <body>
-  <h1>October – December 2025</h1>
+  <h1>October – December 2026</h1>
   <p>Past days are red and today is green, both updated automatically. Tap a future day to mark it (tap again to clear).</p>
   <button id="reset">Clear my marks</button>
   <div id="months"></div>
 
   <script>
-    const YEAR = 2025;
+    const YEAR = 2026;
     const MONTHS = [9, 10, 11]; // October, November, December (0-based)
-    const KEY = "days-2025-red-v1";
+    const KEY = "days-2026-red-v1";
 
     const pad = n => String(n).padStart(2, "0");
     const keyOf = (m, d) => `${YEAR}-${pad(m + 1)}-${pad(d)}`;

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>50 Years in Weeks</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #fafafa;
+      color: #222;
+      margin: 0;
+      padding: 16px;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    p  { margin: 0 0 16px; color: #666; }
+    button {
+      margin-bottom: 16px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .grid { display: flex; flex-direction: column; gap: 3px; }
+    .year { display: flex; align-items: center; gap: 2px; }
+    .label {
+      width: 28px;
+      font-size: 10px;
+      color: #999;
+      text-align: right;
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+    .week {
+      flex: 1;
+      max-width: 14px;
+      aspect-ratio: 1;
+      border: 1px solid #bbb;
+      background: #fff;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .week:hover { border-color: #e53935; }
+    .week.red { background: #e53935; border-color: #e53935; }
+  </style>
+</head>
+<body>
+  <h1>50 Years in Weeks</h1>
+  <p>50 years × 52 weeks = 2600 squares. Tap a square to color it red (tap again to clear).</p>
+  <button id="reset">Clear all</button>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const YEARS = 50;
+    const WEEKS = 52;
+    const KEY = "weeks-red";
+
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+    const red = new Set(saved);
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
+    }
+
+    const grid = document.getElementById("grid");
+    for (let y = 0; y < YEARS; y++) {
+      const row = document.createElement("div");
+      row.className = "year";
+
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = y + 1;
+      row.appendChild(label);
+
+      for (let w = 0; w < WEEKS; w++) {
+        const i = y * WEEKS + w;
+        const cell = document.createElement("div");
+        cell.className = "week" + (red.has(i) ? " red" : "");
+        cell.title = `Year ${y + 1}, week ${w + 1}`;
+        cell.addEventListener("click", () => {
+          cell.classList.toggle("red");
+          cell.classList.contains("red") ? red.add(i) : red.delete(i);
+          save();
+        });
+        row.appendChild(cell);
+      }
+      grid.appendChild(row);
+    }
+
+    document.getElementById("reset").addEventListener("click", () => {
+      red.clear();
+      save();
+      document.querySelectorAll(".week.red").forEach(c => c.classList.remove("red"));
+    });
+  </script>
+</body>
+</html>

@@ -43,10 +43,14 @@
   <script>
     const YEARS = 50;
     const WEEKS = 52;
-    const KEY = "weeks-red";
+    const DEFAULT_RED_YEARS = 28;
+    const KEY = "weeks-red-v2";
 
-    let saved = [];
-    try { saved = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    if (!Array.isArray(saved)) {
+      saved = Array.from({ length: DEFAULT_RED_YEARS * WEEKS }, (_, i) => i);
+    }
     const red = new Set(saved);
 
     function save() {

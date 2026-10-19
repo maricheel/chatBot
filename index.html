@@ -53,8 +53,25 @@
     }
     const red = new Set(saved);
 
+    // Cloud copy (when opened on claude.ai): saved to your account, so it
+    // comes back on any device. localStorage is the fallback elsewhere.
+    let cloudDoc = null;
+    let cloudTimer = null;
+
     function save() {
       try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
+      if (cloudDoc) {
+        clearTimeout(cloudTimer);
+        cloudTimer = setTimeout(() => {
+          cloudDoc.set({ red: [...red] }).catch(() => {});
+        }, 500);
+      }
+    }
+
+    function paint() {
+      document.querySelectorAll(".week").forEach((c, i) => {
+        c.classList.toggle("red", red.has(i));
+      });
     }
 
     const grid = document.getElementById("grid");
@@ -82,6 +99,26 @@
       save();
       document.querySelectorAll(".week.red").forEach(c => c.classList.remove("red"));
     });
+
+    (async () => {
+      if (!window.claude) return;
+      try {
+        const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+        const uid = user && await user.id();
+        if (!db || !uid) return;
+        const doc = db.doc("data/users/" + uid + "/weeks");
+        const snap = await doc.get();
+        const data = snap.exists ? snap.data() : null;
+        if (data && Array.isArray(data.red)) {
+          red.clear();
+          data.red.forEach(i => red.add(i));
+          paint();
+          try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
+        }
+        cloudDoc = doc;
+        if (!data) save();
+      } catch (e) {}
+    })();
   </script>
 </body>
 </html>

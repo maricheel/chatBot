@@ -55,6 +55,12 @@
   .sq.s2 { background: var(--green); }
   .sq.s3 { background: var(--yellow); }
   .sq:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; position: relative; z-index: 1; }
+  .nums .num {
+    flex: 0 0 auto; width: var(--cell); margin-bottom: 2px;
+    font-size: 0.6rem; line-height: 1; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .nums .num + .num { margin-left: -1px; }
+  .nums .num.today { color: var(--fg); font-weight: 700; }
   .ticks .tick { flex: 0 0 auto; width: var(--cell); height: 6px; }
   .ticks .tick + .tick { margin-left: -1px; }
   .ticks .tick.today { border-top: 4px solid var(--fg); }
@@ -110,6 +116,17 @@
     root.appendChild(h);
 
     const days = new Date(YEAR, m + 1, 0).getDate();
+    const nums = document.createElement("div");
+    nums.className = "row nums";
+    nums.appendChild(Object.assign(document.createElement("span"), { className: "label" }));
+    for (let d = 1; d <= days; d++) {
+      const n = document.createElement("span");
+      n.className = "num" + (`${YEAR}-${pad(m + 1)}-${pad(d)}` === TODAY ? " today" : "");
+      n.textContent = d;
+      nums.appendChild(n);
+    }
+    month.appendChild(nums);
+
     ROWS.forEach(([letter, name], r) => {
       const row = document.createElement("div");
       row.className = "row";

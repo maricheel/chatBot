@@ -2,102 +2,166 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Late 2026 Days</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #fafafa;
-      color: #222;
-      margin: 0;
-      padding: 16px;
-    }
-    h1 { font-size: 1.4rem; margin: 0 0 4px; }
-    p  { margin: 0 0 16px; color: #666; }
-    h2 { font-size: 1rem; margin: 16px 0 6px; }
-    button {
-      padding: 6px 12px;
-      cursor: pointer;
-    }
-    .month { display: flex; max-width: 744px; }
-    .day {
-      flex: 1;
-      min-width: 0;
-      aspect-ratio: 1;
-      border: 1px solid #000;
-      background: #fff;
-      box-sizing: border-box;
-      cursor: pointer;
-    }
-    /* Overlap neighbouring borders so every line stays 1px thin. */
-    .day + .day { margin-left: -1px; }
-    .day.past, .day.now { cursor: default; }
-    .day.past, .day.red { background: #e53935; }
-    .day.now { background: #43a047; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Late 2026 Days</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: per month, three touching rows of squares (Regime, Alcool, Mood), one column per day. */
+  :root {
+    --bg: #f7f7f5; --fg: #1f1f1f; --muted: #66665f;
+    --btn-bg: #ffffff; --btn-border: #8a8a83;
+    /* Square colours are fixed by request, same in both themes. */
+    --line: #000; --empty: #fff; --red: #e53935; --green: #43a047;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #181817; --fg: #ececea; --muted: #a3a39c; --btn-bg: #2a2a28; --btn-border: #6b6b65; color-scheme: dark } }
+  :root[data-theme="dark"] {
+    --bg: #181817; --fg: #ececea; --muted: #a3a39c; --btn-bg: #2a2a28; --btn-border: #6b6b65; color-scheme: dark }
+  body {
+    font-family: system-ui, sans-serif;
+    background: var(--bg); color: var(--fg);
+    margin: 0; padding-block: 16px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; text-wrap: balance; }
+  p  { margin: 0 0 12px; color: var(--muted); max-width: 65ch; }
+  h2 { font-size: 1rem; margin: 18px 0 6px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 14px; font-size: 0.85rem; color: var(--muted); }
+  .legend b { color: var(--fg); }
+  .swatch { display: inline-block; width: 0.8em; height: 0.8em; border: 1px solid var(--line); vertical-align: -1px; margin-right: 4px; }
+  .reset {
+    padding: 6px 12px; cursor: pointer; font: inherit;
+    background: var(--btn-bg); color: var(--fg);
+    border: 1px solid var(--btn-border); border-radius: 4px;
+  }
+  .reset:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .month { max-width: 760px; }
+  .row { display: flex; align-items: center; }
+  .row + .row { margin-top: -1px; }
+  .label { flex: 0 0 18px; font-size: 0.65rem; line-height: 1; font-weight: 600; display: flex; align-items: center; }
+  .sq {
+    flex: 1; min-width: 0; max-width: 100%; aspect-ratio: 1;
+    padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 0;
+    font-size: 0; line-height: 0; height: auto;
+    background: var(--empty); cursor: pointer; box-sizing: border-box;
+  }
+  /* Overlap neighbouring borders so every line stays 1px thin. */
+  .sq + .sq { margin-left: -1px; }
+  .sq.s1 { background: var(--red); }
+  .sq.s2 { background: var(--green); }
+  .sq:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; position: relative; z-index: 1; }
+  .ticks .tick { flex: 1; min-width: 0; height: 6px; }
+  .ticks .tick + .tick { margin-left: -1px; }
+  .ticks .tick.today { border-top: 4px solid var(--fg); }
+</style>
 </head>
 <body>
-  <h1>October – December 2026</h1>
-  <p>Past days are red and today is green, both updated automatically. Tap a future day to mark it (tap again to clear).</p>
-  <button id="reset">Clear my marks</button>
-  <div id="months"></div>
 
-  <script>
-    const YEAR = 2026;
-    const MONTHS = [9, 10, 11]; // October, November, December (0-based)
-    const KEY = "days-2026-red-v1";
+<h1>October – December 2026</h1>
+<p>Each day has three squares. Tap once for red, twice for green, a third time to clear. The bar under a column marks today.</p>
+<div class="legend">
+  <span><b>R</b> Regime</span><span><b>A</b> Alcool</span><span><b>M</b> Mood</span>
+  <span><i class="swatch" style="background:var(--red)"></i>1 tap</span>
+  <span><i class="swatch" style="background:var(--green)"></i>2 taps</span>
+</div>
+<button class="reset" id="reset">Clear my marks</button>
+<div id="months"></div>
 
-    const pad = n => String(n).padStart(2, "0");
-    const keyOf = (m, d) => `${YEAR}-${pad(m + 1)}-${pad(d)}`;
-    const now = new Date();
-    const TODAY = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+<script>
+  const YEAR = 2026;
+  const MONTHS = [9, 10, 11]; // October, November, December (0-based)
+  const ROWS = [["R", "Regime"], ["A", "Alcool"], ["M", "Mood"]];
+  const KEY = "days-2026-ram-v1";
 
-    // Days tapped by hand (future days only), stored as "YYYY-MM-DD".
-    let saved = [];
-    try { saved = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
-    const red = new Set(saved.filter(k => k > TODAY));
+  const pad = n => String(n).padStart(2, "0");
+  const now = new Date();
+  const TODAY = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-    function save() {
-      try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
-    }
+  // { "2026-10-19": [regime, alcool, mood] }, each 0 = white, 1 = red, 2 = green.
+  let marks = {};
+  try { marks = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
 
-    const root = document.getElementById("months");
-    const cells = [];
-    for (const m of MONTHS) {
-      const first = new Date(YEAR, m, 1);
-      const h = document.createElement("h2");
-      h.textContent = first.toLocaleString("en-GB", { month: "long" });
-      root.appendChild(h);
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(marks)); } catch (e) {}
+  }
 
+  function paint(cell, state) {
+    cell.classList.toggle("s1", state === 1);
+    cell.classList.toggle("s2", state === 2);
+  }
+
+  const root = document.getElementById("months");
+  const cells = [];
+  for (const m of MONTHS) {
+    const month = document.createElement("div");
+    month.className = "month";
+    const h = document.createElement("h2");
+    h.textContent = new Date(YEAR, m, 1).toLocaleString("en-GB", { month: "long" });
+    root.appendChild(h);
+
+    const days = new Date(YEAR, m + 1, 0).getDate();
+    ROWS.forEach(([letter, name], r) => {
       const row = document.createElement("div");
-      row.className = "month";
-      const days = new Date(YEAR, m + 1, 0).getDate();
+      row.className = "row";
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = letter;
+      label.title = name;
+      row.appendChild(label);
+
       for (let d = 1; d <= days; d++) {
-        const k = keyOf(m, d);
-        const cell = document.createElement("div");
-        cell.className = "day" + (k < TODAY ? " past" : k === TODAY ? " now" : "");
-        cell.title = new Date(YEAR, m, d).toLocaleDateString("en-GB", {
+        const k = `${YEAR}-${pad(m + 1)}-${pad(d)}`;
+        const date = new Date(YEAR, m, d).toLocaleDateString("en-GB", {
           day: "numeric", month: "long", year: "numeric"
         });
-        if (k > TODAY) {
-          cell.addEventListener("click", () => {
-            red.has(k) ? red.delete(k) : red.add(k);
-            cell.classList.toggle("red", red.has(k));
-            save();
-          });
-          cell.classList.toggle("red", red.has(k));
-          cells.push(cell);
-        }
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "sq";
+        cell.title = `${date} · ${name}`;
+        cell.setAttribute("aria-label", `${date}, ${name}`);
+        paint(cell, (marks[k] || [])[r] || 0);
+        cell.addEventListener("click", () => {
+          const day = marks[k] || [0, 0, 0];
+          day[r] = (day[r] + 1) % 3;
+          if (day.some(v => v)) marks[k] = day; else delete marks[k];
+          paint(cell, day[r]);
+          save();
+        });
+        cells.push(cell);
         row.appendChild(cell);
       }
-      root.appendChild(row);
-    }
-
-    document.getElementById("reset").addEventListener("click", () => {
-      red.clear();
-      save();
-      cells.forEach(c => c.classList.remove("red"));
+      month.appendChild(row);
     });
-  </script>
+
+    const ticks = document.createElement("div");
+    ticks.className = "row ticks";
+    ticks.appendChild(Object.assign(document.createElement("span"), { className: "label" }));
+    for (let d = 1; d <= days; d++) {
+      const t = document.createElement("span");
+      t.className = "tick" + (`${YEAR}-${pad(m + 1)}-${pad(d)}` === TODAY ? " today" : "");
+      ticks.appendChild(t);
+    }
+    month.appendChild(ticks);
+    root.appendChild(month);
+  }
+
+  // Clearing wipes every mark, so ask for a second tap within 3 seconds.
+  const reset = document.getElementById("reset");
+  let armed = null;
+  reset.addEventListener("click", () => {
+    if (!armed) {
+      reset.textContent = "Tap again to clear all";
+      armed = setTimeout(() => { armed = null; reset.textContent = "Clear my marks"; }, 3000);
+      return;
+    }
+    clearTimeout(armed);
+    armed = null;
+    reset.textContent = "Clear my marks";
+    marks = {};
+    save();
+    cells.forEach(c => paint(c, 0));
+  });
+</script>
 </body>
 </html>

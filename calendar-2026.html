@@ -6,7 +6,7 @@
 <title>Late 2026 Days</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-  /* Layout: per month, three touching rows of squares (Regime, Alcool, Mood), one column per day. */
+  /* Layout: per month, seven touching rows of squares (one per thing tracked), one column per day. */
   :root {
     --bg: #f7f7f5; --fg: #1f1f1f; --muted: #66665f;
     --btn-bg: #ffffff; --btn-border: #8a8a83;
@@ -39,7 +39,7 @@
   .month { max-width: 760px; }
   .row { display: flex; align-items: center; }
   .row + .row { margin-top: -1px; }
-  .label { flex: 0 0 18px; font-size: 0.65rem; line-height: 1; font-weight: 600; display: flex; align-items: center; }
+  .label { flex: 0 0 30px; font-size: 0.6rem; line-height: 1; font-weight: 600; display: flex; align-items: center; }
   .sq {
     flex: 1; min-width: 0; max-width: 100%; aspect-ratio: 1;
     padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 0;
@@ -59,9 +59,8 @@
 <body>
 
 <h1>October – December 2026</h1>
-<p>Each day has three squares. Tap once for red, twice for green, a third time to clear. The bar under a column marks today.</p>
+<p>Each day has seven squares, one per thing you track. Tap once for red, twice for green, a third time to clear. The bar under a column marks today.</p>
 <div class="legend">
-  <span><b>R</b> Regime</span><span><b>A</b> Alcool</span><span><b>M</b> Mood</span>
   <span><i class="swatch" style="background:var(--red)"></i>1 tap</span>
   <span><i class="swatch" style="background:var(--green)"></i>2 taps</span>
 </div>
@@ -71,14 +70,18 @@
 <script>
   const YEAR = 2026;
   const MONTHS = [9, 10, 11]; // October, November, December (0-based)
-  const ROWS = [["R", "Regime"], ["A", "Alcool"], ["M", "Mood"]];
+  const ROWS = [
+    ["Reg", "Regime"], ["Alc", "Alcool"], ["Mood", "Mood"], ["Work", "Work"],
+    ["Off", "Offline"], ["On", "Online"], ["Mon", "Money"]
+  ];
   const KEY = "days-2026-ram-v1";
 
   const pad = n => String(n).padStart(2, "0");
   const now = new Date();
   const TODAY = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  // { "2026-10-19": [regime, alcool, mood] }, each 0 = white, 1 = red, 2 = green.
+  // { "2026-10-19": [regime, alcool, mood, work, offline, online, money] },
+  // each 0 = white, 1 = red, 2 = green. Older entries may be shorter.
   let marks = {};
   try { marks = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
 
@@ -122,7 +125,7 @@
         cell.setAttribute("aria-label", `${date}, ${name}`);
         paint(cell, (marks[k] || [])[r] || 0);
         cell.addEventListener("click", () => {
-          const day = marks[k] || [0, 0, 0];
+          const day = ROWS.map((_, i) => (marks[k] || [])[i] || 0);
           day[r] = (day[r] + 1) % 3;
           if (day.some(v => v)) marks[k] = day; else delete marks[k];
           paint(cell, day[r]);

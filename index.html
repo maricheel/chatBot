@@ -14,11 +14,15 @@
     }
     h1 { font-size: 1.4rem; margin: 0 0 4px; }
     p  { margin: 0 0 16px; color: #666; }
-    button {
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
       margin-bottom: 16px;
-      padding: 6px 12px;
-      cursor: pointer;
     }
+    .controls input { width: 64px; padding: 5px 6px; font-size: 1rem; }
+    button { padding: 6px 12px; cursor: pointer; }
     .grid { display: flex; flex-direction: column; }
     .year { display: flex; }
     .week {
@@ -39,28 +43,38 @@
   </style>
 </head>
 <body>
-  <h1>50 Years in Weeks</h1>
+  <h1><span id="years-title">50</span> Years in Weeks</h1>
   <p>Born 6 March 1999. Weeks already lived are red, the current week is green, and both move forward automatically. Tap any future square to mark it (tap again to clear).</p>
-  <button id="reset">Clear my marks</button>
+  <div class="controls">
+    <label>Years: <input type="number" id="years" min="1" max="120" value="50"></label>
+    <button id="reset">Clear my marks</button>
+  </div>
   <div class="grid" id="grid"></div>
 
   <script>
-    const YEARS = 50;
     const WEEKS = 52;
+    const YEARS_KEY = "weeks-years";
+    let years = 50;
+    try { years = clampYears(localStorage.getItem(YEARS_KEY)) || 50; } catch (e) {}
+
+    function clampYears(v) {
+      const n = parseInt(v, 10);
+      return n >= 1 ? Math.min(120, n) : null;
+    }
     const BIRTH = new Date(1999, 2, 6); // 6 March 1999
     const KEY = "weeks-red-v3";
 
     // Number of fully lived weeks, counted per life year (52 per row).
     function weeksLived() {
       const today = new Date();
-      let years = today.getFullYear() - BIRTH.getFullYear();
-      let last = new Date(BIRTH.getFullYear() + years, BIRTH.getMonth(), BIRTH.getDate());
+      let age = today.getFullYear() - BIRTH.getFullYear();
+      let last = new Date(BIRTH.getFullYear() + age, BIRTH.getMonth(), BIRTH.getDate());
       if (last > today) {
-        years--;
-        last = new Date(BIRTH.getFullYear() + years, BIRTH.getMonth(), BIRTH.getDate());
+        age--;
+        last = new Date(BIRTH.getFullYear() + age, BIRTH.getMonth(), BIRTH.getDate());
       }
       const days = Math.floor((today - last) / 86400000);
-      return years * WEEKS + Math.min(WEEKS, Math.floor(days / 7));
+      return age * WEEKS + Math.min(WEEKS, Math.floor(days / 7));
     }
     const PAST = weeksLived();
 
@@ -75,11 +89,14 @@
     let cloudTimer = null;
 
     function save() {
-      try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
+      try {
+        localStorage.setItem(KEY, JSON.stringify([...red]));
+        localStorage.setItem(YEARS_KEY, String(years));
+      } catch (e) {}
       if (cloudDoc) {
         clearTimeout(cloudTimer);
         cloudTimer = setTimeout(() => {
-          cloudDoc.set({ red: [...red] }).catch(() => {});
+          cloudDoc.set({ red: [...red], years }).catch(() => {});
         }, 500);
       }
     }
@@ -92,27 +109,43 @@
     }
 
     const grid = document.getElementById("grid");
-    for (let y = 0; y < YEARS; y++) {
-      const row = document.createElement("div");
-      row.className = "year";
+    const yearsInput = document.getElementById("years");
 
-      for (let w = 0; w < WEEKS; w++) {
-        const i = y * WEEKS + w;
-        const cell = document.createElement("div");
-        cell.className = "week" + (i < PAST ? " past" : "");
-        cell.title = `Year ${y + 1}, week ${w + 1}`;
-        if (i > PAST) {
-          cell.addEventListener("click", () => {
-            red.has(i) ? red.delete(i) : red.add(i);
-            paint();
-            save();
-          });
+    function build() {
+      grid.innerHTML = "";
+      yearsInput.value = years;
+      document.getElementById("years-title").textContent = years;
+      for (let y = 0; y < years; y++) {
+        const row = document.createElement("div");
+        row.className = "year";
+
+        for (let w = 0; w < WEEKS; w++) {
+          const i = y * WEEKS + w;
+          const cell = document.createElement("div");
+          cell.className = "week" + (i < PAST ? " past" : "");
+          cell.title = `Year ${y + 1}, week ${w + 1}`;
+          if (i > PAST) {
+            cell.addEventListener("click", () => {
+              red.has(i) ? red.delete(i) : red.add(i);
+              paint();
+              save();
+            });
+          }
+          row.appendChild(cell);
         }
-        row.appendChild(cell);
+        grid.appendChild(row);
       }
-      grid.appendChild(row);
+      paint();
     }
-    paint();
+    build();
+
+    yearsInput.addEventListener("change", () => {
+      const n = clampYears(yearsInput.value);
+      if (!n) { yearsInput.value = years; return; }
+      years = n;
+      build();
+      save();
+    });
 
     document.getElementById("reset").addEventListener("click", () => {
       red.clear();
@@ -132,7 +165,8 @@
         if (data && Array.isArray(data.red)) {
           red.clear();
           data.red.filter(i => i >= PAST).forEach(i => red.add(i));
-          paint();
+          years = clampYears(data.years) || years;
+          build();
           try { localStorage.setItem(KEY, JSON.stringify([...red])); } catch (e) {}
         }
         cloudDoc = doc;
